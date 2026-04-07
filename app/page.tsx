@@ -113,7 +113,7 @@ export default function HomePage() {
 
           {/* AuthForm Container */}
           <div className="w-full animate-in fade-in zoom-in-95 duration-700 delay-200">
-            <AuthForm onAuth={(u: any) => (u.isAdmin ? router.push("/admin") : setUser(u))} />
+            <AuthForm onAuth={(u: any) => (u.isAdmin ? router.push("/adminnnn") : setUser(u))} />
           </div>
 
           {/* Footer nhỏ nhẹ (Tùy chọn) */}
