@@ -14,10 +14,12 @@ interface ChatContainerProps {
 }
 
 export default function ChatContainer({ user, roomId, readOnly = false }: ChatContainerProps) {
-  const { messages, loading, loadingMore, hasMore, loadMoreOlder } = useChat(user, roomId);
+  const { messages, loading, loadingMore, hasMore, loadMoreOlder, setMessages } = useChat(user, roomId);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const isUserAtBottomRef = useRef(true);
   const prevMessagesLengthRef = useRef(0);
+  const hasCalledSeenRef = useRef<string | null>(null);
+  const lastMessageIdRef = useRef<string | null>(null);
 
   const checkIfAtBottom = () => {
     if (!scrollViewportRef.current) return true;
@@ -50,23 +52,53 @@ export default function ChatContainer({ user, roomId, readOnly = false }: ChatCo
     prevMessagesLengthRef.current = messages.length;
   }, [messages, loading]);
 
-  // Đánh dấu đã đọc: chỉ gọi nếu user là participant (có id trong roomId) và không phải readOnly
+  // Gọi seen lần đầu khi mở phòng (chỉ khi user hợp lệ)
   useEffect(() => {
     if (!roomId || readOnly) return;
-    const isParticipant = roomId.includes(user._id);
+    if (!user || !user._id) return; // thêm kiểm tra
+    const ids = roomId.split("-");
+    const isParticipant = ids.includes(user._id);
     if (!isParticipant) return;
+    if (hasCalledSeenRef.current === roomId) return;
+    hasCalledSeenRef.current = roomId;
 
     fetch("/api/messages/seen", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ roomId }),
-    });
-  }, [roomId, user._id, readOnly]);
+      credentials: "include",
+    }).catch(console.error);
+  }, [roomId, user?._id, readOnly]); // dùng optional chaining
+
+  // Gọi seen khi có tin nhắn mới từ người khác
+  useEffect(() => {
+    if (!roomId || readOnly) return;
+    if (!user || !user._id) return; // thêm kiểm tra
+    const ids = roomId.split("-");
+    const isParticipant = ids.includes(user._id);
+    if (!isParticipant) return;
+
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg && String(lastMsg.userId) !== String(user?._id) && lastMsg._id !== lastMessageIdRef.current) {
+      lastMessageIdRef.current = lastMsg._id;
+      fetch("/api/messages/seen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId }),
+        credentials: "include",
+      }).catch(console.error);
+    }
+  }, [messages, roomId, user?._id, readOnly]);
 
   const handleLoadMore = () => {
     if (!hasMore || loadingMore) return;
     loadMoreOlder();
   };
+
+  // Nếu user không hợp lệ, hiển thị div trống (giữ layout)
+  if (!user || !user._id) {
+    return <div className="flex-1 bg-white" />;
+  }
 
   return (
     <div className="flex flex-col h-full bg-white overflow-hidden">
@@ -91,7 +123,13 @@ export default function ChatContainer({ user, roomId, readOnly = false }: ChatCo
             </div>
           ) : (
             messages.map((msg) => (
-              <MessageItem key={msg._id} message={msg} isMe={msg.userId === user._id} currentUser={user} />
+              <MessageItem
+                key={msg._id}
+                message={msg}
+                isMe={msg.userId === user._id}
+                currentUser={user}
+                setMessages={setMessages}
+              />
             ))
           )}
         </div>

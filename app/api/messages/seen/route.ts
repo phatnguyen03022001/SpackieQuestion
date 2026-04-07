@@ -6,25 +6,28 @@ import { cookies } from "next/headers";
 export async function POST(req: NextRequest) {
   await connectDB();
   const cookieStore = await cookies();
+  console.log("Cookie auth_session:", cookieStore.get("auth_session")?.value);
+
   const userId = cookieStore.get("auth_session")?.value;
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { roomId } = await req.json();
-  if (!roomId) {
-    return NextResponse.json({ error: "Thiếu roomId" }, { status: 400 });
-  }
+  if (!roomId) return NextResponse.json({ error: "Thiếu roomId" }, { status: 400 });
 
-  // Kiểm tra user có phải là participant của room không (roomId chứa userId)
-  if (!roomId.includes(userId)) {
+  // Kiểm tra participant
+  const ids = roomId.split("-");
+  if (!ids.includes(userId)) {
     return NextResponse.json({ error: "Forbidden: not a participant" }, { status: 403 });
   }
 
-  // Cập nhật seenBy cho tất cả tin nhắn trong room chưa có userId này
-  const result = await Message.updateMany({ roomId, seenBy: { $ne: userId } }, { $addToSet: { seenBy: userId } });
+  // Cập nhật seenBy cho tin nhắn của người khác
+  const result = await Message.updateMany(
+    { roomId, seenBy: { $ne: userId }, userId: { $ne: userId } },
+    { $addToSet: { seenBy: userId } },
+  );
 
-  // Trigger sự kiện realtime để cập nhật UI cho người gửi
+  console.log(`✅ Seen updated for room ${roomId}: ${result.modifiedCount} messages`);
+
   await pusherServer.trigger(`chat-${roomId}`, "messages-seen", { roomId, userId });
 
   return NextResponse.json({ modified: result.modifiedCount });

@@ -45,6 +45,7 @@ export function useChat(currentUser: any, roomId: string) {
     loadMessages();
     const pusher = getPusherClient();
     const channel = pusher.subscribe(`chat-${roomId}`);
+    console.log("Subscribed to channel:", `chat-${roomId}`);
 
     channel.bind("new-message", (data: any) => {
       setMessages((prev) => (prev.find((m) => m._id === data._id) ? prev : [...prev, data]));
@@ -63,6 +64,7 @@ export function useChat(currentUser: any, roomId: string) {
       );
     });
     channel.bind("messages-seen", (data: { roomId: string; userId: string }) => {
+      console.log("🔔 messages-seen event", data);
       setMessages((prev) =>
         prev.map((msg) => {
           if (msg.userId !== data.userId && !msg.seenBy?.includes(data.userId)) {

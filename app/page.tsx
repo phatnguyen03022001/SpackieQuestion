@@ -133,7 +133,11 @@ export default function HomePage() {
             )}
           </div>
           <div className="flex-1 overflow-auto">
-            <ConversationList userId={user._id} onSelectRoom={handleSelectRoom} />
+            <ConversationList
+              userId={user._id}
+              onSelectRoom={handleSelectRoom}
+              selectedRoomId={selectedRoomId} // 👈 thêm dòng này
+            />
           </div>
         </aside>
 
@@ -156,7 +160,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="flex-1 overflow-hidden bg-slate-50">
-                <ChatContainer user={user} roomId={selectedRoomId} />
+                {selectedRoomId && user && user._id && <ChatContainer user={user} roomId={selectedRoomId} />}{" "}
               </div>
             </>
           )}

@@ -180,7 +180,9 @@ export default function AdminPage() {
               </div>
             </header>
             <div className="flex-1 overflow-hidden relative bg-slate-50/30">
-              <ChatContainer key={selectedRoom.roomId} user={admin} roomId={selectedRoom.roomId} readOnly={true} />
+              {selectedRoom && admin && (
+                <ChatContainer key={selectedRoom.roomId} user={admin} roomId={selectedRoom.roomId} readOnly={true} />
+              )}
             </div>
           </>
         ) : (

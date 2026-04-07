@@ -84,5 +84,17 @@ export async function POST(req: NextRequest) {
     username: user.isAdmin ? user.username : "someone",
   });
 
+  // Gửi sự kiện cập nhật danh sách phòng cho cả người gửi và người nhận
+  // Xác định người nhận (nếu là private room)
+  const participants = finalRoomId
+    .split("-")
+    .filter(
+      (id: string | Uint8Array<ArrayBufferLike> | mongoose.mongo.BSON.ObjectId | mongoose.mongo.BSON.ObjectIdLike) =>
+        id !== "room" && mongoose.Types.ObjectId.isValid(id),
+    );
+  for (const participantId of participants) {
+    await pusherServer.trigger(`user-${participantId}`, "rooms-updated", {});
+  }
+
   return NextResponse.json(msg, { status: 201 });
 }

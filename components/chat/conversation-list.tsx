@@ -1,37 +1,56 @@
 "use client";
+
 import { useEffect, useState } from "react";
+import { getPusherClient } from "@/lib/client";
 import { MessageCircle } from "lucide-react";
 
 export function ConversationList({
   userId,
   onSelectRoom,
+  selectedRoomId,
 }: {
   userId: string;
   onSelectRoom: (roomId: string, otherUser: any) => void;
+  selectedRoomId?: string;
 }) {
-  const [rooms, setRooms] = useState([]);
+  const [rooms, setRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+
+  const fetchRooms = async () => {
+    try {
+      const res = await fetch("/api/rooms");
+      const data = await res.json();
+      setRooms(data);
+    } catch (err) {
+      console.error("Failed to fetch rooms", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetch("/api/rooms")
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch");
-        return res.json();
-      })
-      .then((data) => {
-        setRooms(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setError(true);
-        setLoading(false);
-      });
-  }, []);
+    fetchRooms();
+
+    const pusher = getPusherClient();
+    const channel = pusher.subscribe(`user-${userId}`);
+    channel.bind("rooms-updated", () => {
+      fetchRooms(); // refresh khi có tin nhắn mới
+    });
+    return () => {
+      channel.unbind_all();
+      pusher.unsubscribe(`user-${userId}`);
+    };
+  }, [userId]);
+
+  // Tự động chọn room đầu tiên khi có danh sách và chưa có room nào được chọn
+  useEffect(() => {
+    if (!loading && rooms.length > 0 && !selectedRoomId) {
+      const firstRoom = rooms[0];
+      onSelectRoom(firstRoom.roomId, firstRoom.otherUser);
+    }
+  }, [loading, rooms, selectedRoomId, onSelectRoom]);
 
   if (loading) return <div className="p-2 text-sm">Đang tải...</div>;
-  if (error) return <div className="p-2 text-sm text-red-500">Không thể tải danh sách trò chuyện</div>;
 
   return (
     <div className="flex flex-col h-full">
@@ -42,7 +61,9 @@ export function ConversationList({
           <div
             key={room.roomId}
             onClick={() => onSelectRoom(room.roomId, room.otherUser)}
-            className="p-2 hover:bg-gray-100 cursor-pointer border-b flex items-center gap-2">
+            className={`p-2 hover:bg-gray-100 cursor-pointer border-b flex items-center gap-2 ${
+              selectedRoomId === room.roomId ? "bg-blue-50" : ""
+            }`}>
             <MessageCircle className="w-4 h-4" />
             <span className="text-sm">{room.otherUser?.username || "Unknown"}</span>
           </div>
